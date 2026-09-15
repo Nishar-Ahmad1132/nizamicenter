@@ -76,11 +76,18 @@ export default async function ClassesPage() {
               </div>
 
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md">
-                  Batch: Morning / Evening
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md">
+                    Morning / Evening
+                  </span>
+                  {typeof cls.fee === 'number' && cls.fee > 0 && (
+                    <span className="text-xs font-bold text-[#C0392B] bg-red-50 px-2 py-1 rounded-md">
+                      ₹{cls.fee}/mo
+                    </span>
+                  )}
+                </div>
                 <Link
-                  href="/admissions/apply"
+                  href={`/admissions/apply?class=${encodeURIComponent(cls.slug || cls.name?.en || '')}`}
                   className="inline-flex items-center gap-1 text-sm font-bold text-[#1B6B3A] hover:underline"
                 >
                   Enroll Now <ArrowRight className="w-4 h-4" />

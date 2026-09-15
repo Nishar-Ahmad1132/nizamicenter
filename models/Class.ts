@@ -6,6 +6,7 @@ export interface IClass extends Document {
   numericValue?: number;
   divisionId: Types.ObjectId;
   description?: string;
+  fee?: number;
   status: 'active' | 'inactive';
   displayOrder: number;
   isActive: boolean;
@@ -24,6 +25,7 @@ const classSchema = new Schema<IClass>(
     numericValue: Number,
     divisionId: { type: Schema.Types.ObjectId, ref: 'Division', required: true },
     description: String,
+    fee: Number,
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     displayOrder: { type: Number, default: 0 },
     isActive: { type: Boolean, default: true },

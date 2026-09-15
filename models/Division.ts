@@ -5,6 +5,12 @@ export interface IDivision extends Document {
   slug: string;
   code: string;
   description: { en?: string; hi?: string; ur?: string };
+  headTitle?: string;
+  features?: string[];
+  gradientFrom?: string;
+  gradientTo?: string;
+  buttonText?: string;
+  buttonUrl?: string;
   icon?: string;
   isActive: boolean;
   displayOrder: number;
@@ -26,12 +32,22 @@ const divisionSchema = new Schema<IDivision>(
       hi: String,
       ur: String,
     },
-    icon: String,
+    headTitle: { type: String, trim: true },
+    features: [{ type: String, trim: true }],
+    gradientFrom: { type: String, trim: true },
+    gradientTo: { type: String, trim: true },
+    buttonText: { type: String, trim: true, default: 'Learn More' },
+    buttonUrl: { type: String, trim: true },
+    icon: { type: String, default: 'book' },
     isActive: { type: Boolean, default: true },
     displayOrder: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+
+if (mongoose.models.Division) {
+  delete mongoose.models.Division;
+}
 
 const Division: Model<IDivision> =
   mongoose.models.Division || mongoose.model<IDivision>('Division', divisionSchema);

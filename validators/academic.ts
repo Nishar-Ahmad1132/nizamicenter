@@ -69,6 +69,7 @@ export const classSchema = z.object({
   numericValue: z.number().int().optional(),
   divisionId: z.string().min(1, 'Division is required'),
   description: z.string().optional(),
+  fee: z.number().min(0).optional(),
   status: z.enum(['active', 'inactive']).default('active'),
   displayOrder: z.number().int().min(0).default(0),
 });

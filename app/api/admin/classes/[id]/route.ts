@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
 import dbConnect from '@/lib/db/mongoose';
-import Branch from '@/models/Branch';
+import ClassModel from '@/models/Class';
 
 export async function GET(
   _req: NextRequest,
@@ -11,9 +11,9 @@ export async function GET(
     await requireAdmin();
     await dbConnect();
     const { id } = await params;
-    const branch = await Branch.findById(id).lean();
-    if (!branch) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ branch: JSON.parse(JSON.stringify(branch)) });
+    const cls = await ClassModel.findById(id).populate('divisionId', 'name code').lean();
+    if (!cls) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ class: JSON.parse(JSON.stringify(cls)) });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -28,9 +28,9 @@ export async function PATCH(
     await dbConnect();
     const { id } = await params;
     const body = await req.json();
-    const branch = await Branch.findByIdAndUpdate(id, { $set: body }, { new: true }).lean();
-    if (!branch) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ branch: JSON.parse(JSON.stringify(branch)) });
+    const cls = await ClassModel.findByIdAndUpdate(id, { $set: body }, { new: true }).lean();
+    if (!cls) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ class: JSON.parse(JSON.stringify(cls)) });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -44,7 +44,7 @@ export async function DELETE(
     await requireAdmin();
     await dbConnect();
     const { id } = await params;
-    await Branch.findByIdAndUpdate(id, { isActive: false });
+    await ClassModel.findByIdAndUpdate(id, { isActive: false, status: 'inactive' });
     return NextResponse.json({ success: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

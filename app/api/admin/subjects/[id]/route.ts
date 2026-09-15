@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/session';
 import dbConnect from '@/lib/db/mongoose';
-import Branch from '@/models/Branch';
+import Subject from '@/models/Subject';
 
 export async function GET(
   _req: NextRequest,
@@ -11,9 +11,12 @@ export async function GET(
     await requireAdmin();
     await dbConnect();
     const { id } = await params;
-    const branch = await Branch.findById(id).lean();
-    if (!branch) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ branch: JSON.parse(JSON.stringify(branch)) });
+    const subject = await Subject.findById(id)
+      .populate('divisionId', 'name code')
+      .populate('classIds', 'name numericValue')
+      .lean();
+    if (!subject) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ subject: JSON.parse(JSON.stringify(subject)) });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -28,9 +31,24 @@ export async function PATCH(
     await dbConnect();
     const { id } = await params;
     const body = await req.json();
-    const branch = await Branch.findByIdAndUpdate(id, { $set: body }, { new: true }).lean();
-    if (!branch) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ branch: JSON.parse(JSON.stringify(branch)) });
+
+    const allowed = ['name', 'code', 'divisionId', 'classIds', 'description', 'icon', 'status', 'isActive'];
+    const updateData: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (body[key] !== undefined) updateData[key] = body[key];
+    }
+
+    const subject = await Subject.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true }
+    )
+      .populate('divisionId', 'name code')
+      .populate('classIds', 'name numericValue')
+      .lean();
+
+    if (!subject) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ subject: JSON.parse(JSON.stringify(subject)) });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
@@ -44,7 +62,7 @@ export async function DELETE(
     await requireAdmin();
     await dbConnect();
     const { id } = await params;
-    await Branch.findByIdAndUpdate(id, { isActive: false });
+    await Subject.findByIdAndUpdate(id, { isActive: false, status: 'inactive' });
     return NextResponse.json({ success: true });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
