@@ -20,10 +20,13 @@ function LoginForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
   });
+
+  const usernameVal = watch('username');
 
   const onSubmit = (data: LoginInput) => {
     setError(null);
@@ -113,8 +116,8 @@ function LoginForm() {
 
         <div className="flex items-center justify-end">
           <Link
-            href="/contact"
-            className="text-sm text-primary hover:underline"
+            href={usernameVal?.trim() ? `/forgot-password?identifier=${encodeURIComponent(usernameVal.trim())}` : '/forgot-password'}
+            className="text-sm text-primary hover:underline font-medium"
           >
             Forgot password?
           </Link>

@@ -159,7 +159,7 @@ function NavItemComponent({
 export default function AdminSidebar({ userRole }: { userRole: string }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const SidebarContent = () => (
+  const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-gray-200">
@@ -187,7 +187,7 @@ export default function AdminSidebar({ userRole }: { userRole: string }) {
     <>
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-gray-200 flex-col shrink-0">
-        <SidebarContent />
+        {sidebarContent}
       </aside>
 
       {/* Mobile overlay */}
@@ -201,7 +201,7 @@ export default function AdminSidebar({ userRole }: { userRole: string }) {
             >
               <X className="w-5 h-5" />
             </button>
-            <SidebarContent />
+            {sidebarContent}
           </aside>
         </div>
       )}

@@ -39,3 +39,8 @@ export async function requireSuperAdmin(): Promise<SessionUser> {
 export async function requireTeacher(): Promise<SessionUser> {
   return requireRole(['super_admin', 'branch_admin', 'teacher']);
 }
+
+export async function requireStudent(): Promise<SessionUser> {
+  return requireRole(['student', 'super_admin']);
+}
+

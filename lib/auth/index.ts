@@ -18,15 +18,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         await dbConnect();
 
-        // Find by username or email
-        const user = await User.findOne({
+        const cleanInput = username.trim();
+
+        // 1. Find by username or email
+        let user = await User.findOne({
           $or: [
-            { username: username.toLowerCase() },
-            { email: username.toLowerCase() },
+            { username: cleanInput.toLowerCase() },
+            { email: cleanInput.toLowerCase() },
           ],
           isActive: true,
           deletedAt: { $exists: false },
         }).lean();
+
+        // 2. If not found, check if it matches a Student ID (e.g. NIC-2026-0002)
+        if (!user) {
+          const Student = (await import('@/models/Student')).default;
+          const student = await Student.findOne({
+            studentId: new RegExp(`^${cleanInput}$`, 'i'),
+            isActive: true,
+          }).lean();
+
+          if (student?.userId) {
+            user = await User.findOne({
+              _id: student.userId,
+              isActive: true,
+              deletedAt: { $exists: false },
+            }).lean();
+          }
+        }
 
         if (!user) return null;
 

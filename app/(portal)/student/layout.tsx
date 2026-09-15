@@ -25,6 +25,7 @@ export default async function StudentPortalLayout({
     { label: 'Fee Payments', href: '/student/fees', icon: CreditCard },
     { label: 'Timetable', href: '/student/timetable', icon: Clock },
     { label: 'My Profile', href: '/student/profile', icon: User },
+    { label: 'Helpdesk & Inquiries', href: '/student/support', icon: Bell },
   ];
 
   return (

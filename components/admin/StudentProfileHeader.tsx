@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Pencil, Trash2, X, Check, AlertTriangle, Phone, Building2,
-  Calendar, Shield, Mail, MapPin, User, Save, Loader2
+  Calendar, Save, Loader2, KeyRound, Copy
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -56,6 +56,38 @@ export default function StudentProfileHeader({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Password reset state
+  const [isPasswordResetOpen, setIsPasswordResetOpen] = useState(false);
+  const [adminNewPassword, setAdminNewPassword] = useState('Nizami@2026');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  async function handleAdminPasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetError('');
+    setResetSuccess('');
+
+    try {
+      const res = await fetch(`/api/admin/students/${student._id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: adminNewPassword }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to reset password');
+
+      setResetSuccess(result.message || 'Password reset successfully');
+    } catch (err) {
+      setResetError((err as Error).message);
+    } finally {
+      setResetLoading(false);
+    }
+  }
 
   // Edit form state
   const [formData, setFormData] = useState({
@@ -207,13 +239,26 @@ export default function StudentProfileHeader({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 pt-2 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
             <button
               type="button"
               onClick={() => setIsEditOpen(true)}
               className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
             >
               <Pencil className="w-3.5 h-3.5" /> Edit Details
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPasswordResetOpen(true);
+                setResetSuccess('');
+                setResetError('');
+                setAdminNewPassword('Nizami@2026');
+                setCopied(false);
+              }}
+              className="px-3.5 py-2 border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-xl text-xs font-medium flex items-center gap-1.5 transition shadow-sm"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-700" /> Reset Password
             </button>
             <button
               type="button"
@@ -533,6 +578,120 @@ export default function StudentProfileHeader({
                 Yes, Remove Student
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Reset Password Modal */}
+      {isPasswordResetOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Reset Student Password</h3>
+                  <p className="text-[11px] text-gray-500 font-mono">{student.studentId} ({student.firstName})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPasswordResetOpen(false)}
+                className="p-1 text-gray-400 hover:text-gray-700 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {resetError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl">
+                {resetError}
+              </div>
+            )}
+
+            {resetSuccess ? (
+              <div className="space-y-4 py-2">
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-start gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold">{resetSuccess}</p>
+                    <p className="text-[11px] text-emerald-700 mt-1">
+                      Username: <strong className="font-mono">{student.studentId.toLowerCase()}</strong>
+                    </p>
+                    <p className="text-[11px] text-emerald-700">
+                      New Password: <strong className="font-mono">{adminNewPassword}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`Username: ${student.studentId.toLowerCase()}\nPassword: ${adminNewPassword}`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className="flex-1 py-2 px-3 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> {copied ? 'Copied to Clipboard!' : 'Copy Credentials'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPasswordResetOpen(false)}
+                    className="py-2 px-4 bg-gray-900 text-white hover:bg-black rounded-xl text-xs font-semibold transition"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAdminPasswordReset} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-1">
+                    Set New Password (min 6 chars)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      value={adminNewPassword}
+                      onChange={(e) => setAdminNewPassword(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-gray-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAdminNewPassword(`Nizami@${Math.floor(1000 + Math.random() * 9000)}`)}
+                      className="px-3 py-2 border border-gray-300 hover:bg-gray-50 rounded-xl text-gray-600 font-medium whitespace-nowrap"
+                    >
+                      Generate
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Provide this new password to the student or parent for their portal login.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPasswordResetOpen(false)}
+                    className="flex-1 py-2.5 px-4 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading || !adminNewPassword}
+                    className="flex-1 py-2.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-semibold shadow-sm flex items-center justify-center gap-1.5 transition"
+                  >
+                    {resetLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
+                    Confirm & Update
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

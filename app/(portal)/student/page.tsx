@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import dbConnect from '@/lib/db/mongoose';
 import Student from '@/models/Student';
+import Enrollment from '@/models/Enrollment';
 import Attendance from '@/models/Attendance';
 import FeeRecord from '@/models/FeeRecord';
 import Notice from '@/models/Notice';
@@ -37,6 +38,13 @@ export default async function StudentDashboardPage() {
       .lean();
   }
 
+  if (!student && session?.user?.email) {
+    student = await Student.findOne({ email: session.user.email })
+      .populate('primaryBranchId', 'name')
+      .populate('academicYearId', 'name')
+      .lean();
+  }
+
   // Fallback to first student if demo user or new account
   if (!student) {
     student = await Student.findOne({ status: 'active' })
@@ -46,6 +54,35 @@ export default async function StudentDashboardPage() {
   }
 
   const studentObj = student ? JSON.parse(JSON.stringify(student)) : null;
+
+  // Query real active enrollments for this student
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let enrollments: any[] = [];
+  if (student?._id) {
+    enrollments = await Enrollment.find({
+      studentId: student._id,
+      isActive: true,
+      status: 'active',
+    })
+      .populate('divisionId', 'name code slug')
+      .populate('classId', 'name numericValue')
+      .populate('courseId', 'name slug')
+      .lean();
+  }
+
+  const primaryEnrollment = enrollments[0];
+  const isNic = primaryEnrollment?.divisionId?.code === 'NIC' ||
+    primaryEnrollment?.divisionId?.slug?.includes('islamic') ||
+    studentObj?.studentId?.startsWith('NIC');
+
+  const divName = primaryEnrollment?.divisionId
+    ? (typeof primaryEnrollment.divisionId.name === 'object' ? primaryEnrollment.divisionId.name.en : primaryEnrollment.divisionId.name)
+    : (isNic ? 'Nizami Islamic Center' : 'Nizami Education');
+
+  const clsName = typeof primaryEnrollment?.classId?.name === 'object' ? primaryEnrollment?.classId?.name?.en : primaryEnrollment?.classId?.name;
+  const crsName = typeof primaryEnrollment?.courseId?.name === 'object' ? primaryEnrollment?.courseId?.name?.en : primaryEnrollment?.courseId?.name;
+
+  const currentProgramLabel = isNic ? (crsName || 'Islamic Studies') : (clsName || 'Class 6');
 
   // Fetch recent notices
   const notices = await Notice.find({ status: 'published' })
@@ -70,12 +107,27 @@ export default async function StudentDashboardPage() {
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayDay = dayNames[new Date().getDay()];
 
-  // Query today's active schedule slots from database
-  let todaySlots = await Timetable.find({
+  // Query today's schedule slots, prioritizing student's enrolled class or course
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const timetableFilter: Record<string, any> = {
     day: todayDay as DayOfWeek,
     isActive: true,
     status: 'active',
-  })
+  };
+
+  if (primaryEnrollment?.classId?._id) {
+    timetableFilter.$or = [
+      { classId: primaryEnrollment.classId._id },
+      { divisionId: primaryEnrollment.divisionId?._id },
+    ];
+  } else if (primaryEnrollment?.courseId?._id) {
+    timetableFilter.$or = [
+      { courseId: primaryEnrollment.courseId._id },
+      { divisionId: primaryEnrollment.divisionId?._id },
+    ];
+  }
+
+  let todaySlots = await Timetable.find(timetableFilter)
     .populate('divisionId', 'name code slug')
     .populate('courseId', 'name')
     .populate('subjectId', 'name')
@@ -83,6 +135,22 @@ export default async function StudentDashboardPage() {
     .populate('teacherId', 'name title')
     .sort({ startTime: 1 })
     .lean();
+
+  // If no slots specifically for today, fallback to general today's slots or Monday
+  if (todaySlots.length === 0) {
+    todaySlots = await Timetable.find({
+      day: todayDay as DayOfWeek,
+      isActive: true,
+      status: 'active',
+    })
+      .populate('divisionId', 'name code slug')
+      .populate('courseId', 'name')
+      .populate('subjectId', 'name')
+      .populate('classId', 'name')
+      .populate('teacherId', 'name title')
+      .sort({ startTime: 1 })
+      .lean();
+  }
 
   const isWeekendOff = todaySlots.length === 0;
   if (isWeekendOff) {
@@ -102,7 +170,7 @@ export default async function StudentDashboardPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const schedule = todaySlots.map((s: any) => {
-    const isNic = s.divisionId?.code === 'NIC' || s.divisionId?.slug?.includes('islamic');
+    const slotIsNic = s.divisionId?.code === 'NIC' || s.divisionId?.slug?.includes('islamic');
     const courseName = typeof s.courseId?.name === 'object' ? s.courseId?.name?.en : s.courseId?.name;
     const subjectName = typeof s.subjectId?.name === 'object' ? s.subjectId?.name?.en : s.subjectId?.name;
     const className = typeof s.classId?.name === 'object' ? s.classId?.name?.en : s.classId?.name;
@@ -115,7 +183,7 @@ export default async function StudentDashboardPage() {
       subject,
       teacher: s.teacherId?.name || 'Assigned Faculty',
       room: s.room || 'Main Hall',
-      isNic,
+      isNic: slotIsNic,
     };
   });
 
@@ -125,14 +193,19 @@ export default async function StudentDashboardPage() {
       <div className="bg-gradient-to-br from-[#0D4A28] to-[#1B6B3A] rounded-2xl p-6 sm:p-8 text-white shadow-md">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-white/10 rounded-full border border-white/20 text-[#D4AF37]">
-              Student ID: {studentObj?.studentId || 'NIZ-2026-0042'}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold px-2.5 py-1 bg-white/10 rounded-full border border-white/20 text-[#D4AF37]">
+                Student ID: {studentObj?.studentId || 'NE-2026-0006'}
+              </span>
+              <span className="text-xs font-bold px-2.5 py-1 bg-white/20 rounded-full text-white">
+                {divName} • {isNic ? `Course: ${currentProgramLabel}` : `Grade: ${currentProgramLabel}`}
+              </span>
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2">
-              {studentObj?.firstName ? `${studentObj.firstName} ${studentObj.lastName || ''}` : 'Enrolled Student'}
+              {studentObj?.firstName ? `${studentObj.firstName} ${studentObj.lastName && studentObj.lastName !== '-' ? studentObj.lastName : ''}`.trim() : 'Enrolled Student'}
             </h1>
             <p className="text-emerald-100 text-sm mt-1">
-              Campus: {studentObj?.primaryBranchId?.name || 'Main Campus'} • Academic Year: {studentObj?.academicYearId?.name || '2025-2026'}
+              Campus: {studentObj?.primaryBranchId?.name || 'Chota Chowk Branch (Khan Chawl)'} • Academic Year: {studentObj?.academicYearId?.name || '2026-27'}
             </p>
           </div>
 
@@ -177,13 +250,24 @@ export default async function StudentDashboardPage() {
           <p className="text-[11px] text-emerald-600 mt-1">All dues cleared</p>
         </div>
 
+        {/* Dynamic Active Enrolled Tracks Card */}
         <div className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
             <BookOpen className="w-5 h-5" />
           </div>
           <p className="text-xs text-gray-500 font-medium">Active Enrolled Tracks</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">2</p>
-          <p className="text-[11px] text-gray-500 mt-1">Hifz & Secondary School</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{enrollments.length || 1}</p>
+          <p className="text-[11px] text-gray-500 mt-1 truncate" title={isNic ? `${currentProgramLabel} (${divName})` : `${currentProgramLabel} (${divName})`}>
+            {enrollments.length > 0
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ? enrollments.map((e: any) => {
+                  const eIsNic = e.divisionId?.code === 'NIC' || e.divisionId?.slug?.includes('islamic');
+                  const crs = typeof e.courseId?.name === 'object' ? e.courseId?.name?.en : e.courseId?.name;
+                  const cls = typeof e.classId?.name === 'object' ? e.classId?.name?.en : e.classId?.name;
+                  return eIsNic ? crs || 'Islamic Track' : cls || 'Academic Track';
+                }).join(', ')
+              : `${currentProgramLabel} • ${divName}`}
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm">
