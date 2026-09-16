@@ -1,13 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTeacher } from '@/lib/auth/session';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import dbConnect from '@/lib/db/mongoose';
 import mongoose from 'mongoose';
 import Teacher from '@/models/Teacher';
 import Attendance from '@/models/Attendance';
 import Enrollment from '@/models/Enrollment';
+import Division from '@/models/Division';
+import '@/models/Class';
+import '@/models/Subject';
+import '@/models/Course';
+import '@/models/Branch';
+import '@/models/Student';
+
+function getItemName(item: any): string {
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  if (typeof item.name === 'string') return item.name;
+  if (typeof item.name === 'object' && item.name) {
+    return item.name.en || item.name.hi || item.name.ur || '';
+  }
+  return '';
+}
 
 /**
- * GET /api/teacher/attendance?date=YYYY-MM-DD&branchId=xxx&courseId=yyy
+ * GET /api/teacher/attendance?date=YYYY-MM-DD&division=NIC|NE&branchId=xxx&courseId=yyy&subjectId=zzz
  * Returns enrolled students for the teacher's cohort with today's attendance status
  */
 export async function GET(req: NextRequest) {
@@ -17,43 +34,78 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const dateStr = searchParams.get('date') || new Date().toISOString().split('T')[0];
-    const branchId = searchParams.get('branchId');
-    const courseId = searchParams.get('courseId');
+    const divisionCode = (searchParams.get('division') || '').toUpperCase().trim();
+    const branchId = searchParams.get('branchId') || '';
+    const courseId = searchParams.get('courseId') || '';
+    const subjectId = searchParams.get('subjectId') || '';
 
     const date = new Date(dateStr);
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
 
     // Find teacher record from user session
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true })
-      .populate('branchIds', 'name')
-      .populate('courseIds', 'name')
+    const rawTeacher = await getEffectiveTeacher(user);
+    if (!rawTeacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
+    }
+
+    const teacher = await Teacher.findById(rawTeacher._id)
+      .populate('branchIds', 'name shortName')
+      .populate('courseIds', 'name category fee duration')
+      .populate('subjectIds', 'name code')
       .lean();
 
     if (!teacher) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
     }
 
-    const branchIds = (teacher.branchIds as any[]).map((b: any) => b._id);
-    const courseIds = (teacher.courseIds as any[]).map((c: any) => c._id);
+    const branchIds = ((teacher.branchIds as any[]) || []).map((b: any) => b._id || b);
+    const courseIds = ((teacher.courseIds as any[]) || []).map((c: any) => c._id || c);
+    const subjectIds = ((teacher.subjectIds as any[]) || []).map((s: any) => s._id || s);
 
-    // Build filter: if specific branch/course requested, use those; else use all teacher's allocations
-    const enrollmentFilter: Record<string, unknown> = { isActive: true };
+    // Fetch active divisions
+    const allDivisions = await Division.find({ isActive: true }).select('code name slug').lean();
+    const nicDiv = allDivisions.find((d) => d.code === 'NIC');
+    const neDiv = allDivisions.find((d) => d.code === 'NE');
+
+    // Build filter
+    const enrollmentFilter: Record<string, any> = { isActive: true };
+
     if (branchId) {
       enrollmentFilter.branchId = branchId;
-    } else {
+    } else if (branchIds.length > 0) {
       enrollmentFilter.branchId = { $in: branchIds };
     }
-    if (courseId) {
-      enrollmentFilter.courseId = courseId;
-    } else if (courseIds.length > 0) {
-      enrollmentFilter.courseId = { $in: courseIds };
+
+    if (divisionCode === 'NIC' && nicDiv) {
+      enrollmentFilter.divisionId = nicDiv._id;
+      if (courseId) {
+        enrollmentFilter.courseId = courseId;
+      } else if (courseIds.length > 0) {
+        enrollmentFilter.courseId = { $in: courseIds };
+      }
+    } else if (divisionCode === 'NE' && neDiv) {
+      enrollmentFilter.divisionId = neDiv._id;
+      if (subjectId) {
+        enrollmentFilter.subjectIds = subjectId;
+      }
+    } else {
+      // All Divisions
+      if (courseId) {
+        enrollmentFilter.courseId = courseId;
+      } else if (subjectId) {
+        enrollmentFilter.subjectIds = subjectId;
+      }
     }
 
     const enrollments = await Enrollment.find(enrollmentFilter)
       .populate({ path: 'studentId', select: 'studentId firstName lastName phone gender status' })
+      .populate('divisionId', 'code name')
       .populate('branchId', 'name')
-      .populate('courseId', 'name')
+      .populate('courseId', 'name category')
+      .populate('classId', 'name numericValue')
+      .populate('subjectIds', 'name code')
+      .sort({ createdAt: -1 })
       .lean();
 
     // Get existing attendance records for this date
@@ -70,21 +122,49 @@ export async function GET(req: NextRequest) {
 
     const students = enrollments
       .filter((e: any) => e.studentId)
-      .map((e: any) => ({
-        _id: e.studentId._id.toString(),
-        studentId: e.studentId.studentId,
-        name: `${e.studentId.firstName} ${e.studentId.lastName}`.trim(),
-        phone: e.studentId.phone || '',
-        gender: e.studentId.gender || 'male',
-        branch: e.branchId?.name || '',
-        course: typeof e.courseId === 'object' && e.courseId?.name ? (e.courseId.name.en || e.courseId.name) : '',
-        attendanceStatus: attendanceMap[e.studentId._id.toString()] || 'present',
-        hasRecord: !!attendanceMap[e.studentId._id.toString()],
-      }));
+      .map((e: any) => {
+        const divCode = e.divisionId?.code || (e.courseId ? 'NIC' : 'NE');
+        const divName = getItemName(e.divisionId) || (divCode === 'NIC' ? 'Nizami Islamic Center' : 'Nizami Education');
+
+        let cohortDetails = '';
+        if (divCode === 'NIC') {
+          cohortDetails = getItemName(e.courseId) || 'Islamic Course';
+        } else {
+          const className = getItemName(e.classId) || 'Academic';
+          const subNames = (e.subjectIds || []).map((s: any) => getItemName(s) || s.code).filter(Boolean);
+          cohortDetails = subNames.length > 0 ? `${className} (${subNames.join(', ')})` : className;
+        }
+
+        return {
+          _id: e.studentId._id.toString(),
+          studentId: e.studentId.studentId,
+          name: `${e.studentId.firstName} ${e.studentId.lastName}`.trim(),
+          phone: e.studentId.phone || '',
+          gender: e.studentId.gender || 'male',
+          branch: e.branchId?.name || '',
+          divisionCode: divCode,
+          divisionName: divName,
+          cohortDetails,
+          attendanceStatus: attendanceMap[e.studentId._id.toString()] || 'present',
+          hasRecord: !!attendanceMap[e.studentId._id.toString()],
+        };
+      });
 
     return NextResponse.json({
-      teacher: { _id: teacher._id, name: teacher.name, branchIds: teacher.branchIds, courseIds: teacher.courseIds },
+      teacher: {
+        _id: teacher._id,
+        name: teacher.name,
+        branchIds: teacher.branchIds,
+        courseIds: teacher.courseIds,
+        subjectIds: teacher.subjectIds,
+      },
+      divisions: allDivisions.map((d) => ({
+        _id: d._id,
+        code: d.code,
+        name: getItemName(d) || d.code,
+      })),
       date: dateStr,
+      selectedDivision: divisionCode,
       students,
       alreadySaved: students.every((s) => s.hasRecord) && students.length > 0,
     });
@@ -113,8 +193,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find teacher and a valid branch for markedBy lookup
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true }).lean();
-    const fallbackTeacher = teacher || (await Teacher.findOne({ isActive: true }).lean());
+    const fallbackTeacher = await getEffectiveTeacher(user);
     if (!fallbackTeacher) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
     }

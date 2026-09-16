@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import dbConnect from '@/lib/db/mongoose';
 import Teacher from '@/models/Teacher';
 import Enrollment from '@/models/Enrollment';
@@ -21,19 +22,10 @@ function getItemName(item: any): string {
 
 export default async function TeacherClassesPage() {
   const session = await auth();
-  await dbConnect();
-
-  let teacher = null;
-  if (session?.user?.id) {
-    teacher = await Teacher.findOne({ userId: session.user.id, isActive: true })
-      .populate('branchIds', 'name')
-      .populate('subjectIds', 'name code')
-      .populate('courseIds', 'name category fee duration')
-      .lean();
-  }
-
-  if (!teacher) {
-    teacher = await Teacher.findOne({ isActive: true })
+  const rawTeacher = await getEffectiveTeacher(session?.user as any);
+  let teacher: any = null;
+  if (rawTeacher) {
+    teacher = await Teacher.findById(rawTeacher._id)
       .populate('branchIds', 'name')
       .populate('subjectIds', 'name code')
       .populate('courseIds', 'name category fee duration')
@@ -46,18 +38,23 @@ export default async function TeacherClassesPage() {
 
   const teacherBranchIds = (teacher.branchIds || []).map((b: any) => b._id);
   const teacherCourseIds = (teacher.courseIds || []).map((c: any) => c._id);
+  const teacherSubjectIds = (teacher.subjectIds || []).map((s: any) => s._id);
 
-  // Fetch real enrollments
+  // Fetch real enrollments across teacher's assigned branches, courses, and subjects
   const enrollments = await Enrollment.find({
     isActive: true,
     $or: [
       { courseId: { $in: teacherCourseIds } },
+      { subjectIds: { $in: teacherSubjectIds } },
       { branchId: { $in: teacherBranchIds } },
     ],
   })
     .populate('studentId', 'studentId firstName lastName phone gender status')
+    .populate('divisionId', 'code name')
     .populate('branchId', 'name')
-    .populate('courseId', 'name')
+    .populate('courseId', 'name duration')
+    .populate('classId', 'name numericValue')
+    .populate('subjectIds', 'name code')
     .sort({ createdAt: -1 })
     .lean();
 
@@ -161,8 +158,9 @@ export default async function TeacherClassesPage() {
                 <tr>
                   <th className="px-5 py-3">Student ID</th>
                   <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Branch</th>
-                  <th className="px-5 py-3">Course / Batch</th>
+                  <th className="px-5 py-3">Division</th>
+                  <th className="px-5 py-3">Campus</th>
+                  <th className="px-5 py-3">Course / Class</th>
                   <th className="px-5 py-3">Contact</th>
                   <th className="px-5 py-3">Status</th>
                 </tr>
@@ -171,6 +169,15 @@ export default async function TeacherClassesPage() {
                 {enrollments.map((e: any) => {
                   const s = e.studentId;
                   if (!s) return null;
+                  const isNIC = e.divisionId?.code === 'NIC' || !!e.courseId;
+                  const cohortLabel = isNIC
+                    ? getItemName(e.courseId) || 'Islamic Course'
+                    : `${getItemName(e.classId) || 'Academic'}${
+                        e.subjectIds && e.subjectIds.length > 0
+                          ? ` (${e.subjectIds.map((sub: any) => getItemName(sub) || sub.code).join(', ')})`
+                          : ''
+                      }`;
+
                   return (
                     <tr key={e._id} className="hover:bg-gray-50/80 transition">
                       <td className="px-5 py-3 font-mono font-bold text-xs text-[#1B6B3A]">
@@ -179,11 +186,22 @@ export default async function TeacherClassesPage() {
                       <td className="px-5 py-3 font-semibold text-dark">
                         {s.firstName} {s.lastName}
                       </td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                            isNIC
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-purple-50 text-purple-800 border border-purple-200'
+                          }`}
+                        >
+                          {isNIC ? '🕌 NIC' : '📚 NE'}
+                        </span>
+                      </td>
                       <td className="px-5 py-3 text-xs text-gray-600">
                         {e.branchId?.name || '—'}
                       </td>
                       <td className="px-5 py-3 text-xs font-medium text-gray-700">
-                        {getItemName(e.courseId) || 'Regular'}
+                        {cohortLabel}
                       </td>
                       <td className="px-5 py-3 text-xs text-gray-500">
                         {s.phone ? (

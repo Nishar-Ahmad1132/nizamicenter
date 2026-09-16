@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTeacher } from '@/lib/auth/session';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import dbConnect from '@/lib/db/mongoose';
 import Teacher from '@/models/Teacher';
 import TeacherIssue from '@/models/TeacherIssue';
@@ -9,7 +10,7 @@ export async function GET() {
     const user = await requireTeacher();
     await dbConnect();
 
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true }).lean();
+    const teacher = await getEffectiveTeacher(user);
     if (!teacher) return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
 
     const issues = await TeacherIssue.find({ teacherId: teacher._id })
@@ -28,9 +29,7 @@ export async function POST(req: NextRequest) {
     const user = await requireTeacher();
     await dbConnect();
 
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true }).lean();
-    // Fallback for admin testing
-    const effectiveTeacher = teacher || (await Teacher.findOne({ isActive: true }).lean());
+    const effectiveTeacher = await getEffectiveTeacher(user);
     if (!effectiveTeacher) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
     }

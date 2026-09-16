@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { auth } from '@/lib/auth';
-import dbConnect from '@/lib/db/mongoose';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import Teacher from '@/models/Teacher';
 import {
   LayoutDashboard,
@@ -20,18 +20,10 @@ export default async function TeacherPortalLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  await dbConnect();
-
-  let teacher = null;
-  if (session?.user?.id) {
-    teacher = await Teacher.findOne({ userId: session.user.id, isActive: true })
-      .populate('branchIds', 'name')
-      .lean();
-  }
-
-  // Fallback if accessed by super_admin testing the portal
-  if (!teacher && (session?.user as any)?.role === 'super_admin') {
-    teacher = await Teacher.findOne({ isActive: true })
+  const rawTeacher = await getEffectiveTeacher(session?.user as any);
+  let teacher: any = null;
+  if (rawTeacher) {
+    teacher = await Teacher.findById(rawTeacher._id)
       .populate('branchIds', 'name')
       .lean();
   }

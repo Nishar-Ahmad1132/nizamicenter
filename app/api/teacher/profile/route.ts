@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTeacher } from '@/lib/auth/session';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import dbConnect from '@/lib/db/mongoose';
 import Teacher from '@/models/Teacher';
 
@@ -8,7 +9,12 @@ export async function GET() {
     const user = await requireTeacher();
     await dbConnect();
 
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true })
+    const rawTeacher = await getEffectiveTeacher(user);
+    if (!rawTeacher) {
+      return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
+    }
+
+    const teacher = await Teacher.findById(rawTeacher._id)
       .populate('branchIds', 'name shortName')
       .populate('subjectIds', 'name shortName')
       .populate('courseIds', 'name')
@@ -29,7 +35,10 @@ export async function PATCH(req: NextRequest) {
     const user = await requireTeacher();
     await dbConnect();
 
-    const teacher = await Teacher.findOne({ userId: user.id, isActive: true });
+    const rawTeacher = await getEffectiveTeacher(user);
+    if (!rawTeacher) return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
+
+    const teacher = await Teacher.findById(rawTeacher._id);
     if (!teacher) return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
 
     const body = await req.json();

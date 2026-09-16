@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth';
+import { getEffectiveTeacher } from '@/lib/auth/teacher';
 import dbConnect from '@/lib/db/mongoose';
 import Teacher from '@/models/Teacher';
 import Student from '@/models/Student';
@@ -31,20 +32,10 @@ function getItemName(item: any): string {
 
 export default async function TeacherDashboardPage() {
   const session = await auth();
-  await dbConnect();
-
-  let teacher = null;
-  if (session?.user?.id) {
-    teacher = await Teacher.findOne({ userId: session.user.id, isActive: true })
-      .populate('branchIds', 'name address')
-      .populate('subjectIds', 'name code')
-      .populate('courseIds', 'name category fee duration')
-      .lean();
-  }
-
-  // Fallback for admin previewing the portal
-  if (!teacher) {
-    teacher = await Teacher.findOne({ isActive: true })
+  const rawTeacher = await getEffectiveTeacher(session?.user as any);
+  let teacher: any = null;
+  if (rawTeacher) {
+    teacher = await Teacher.findById(rawTeacher._id)
       .populate('branchIds', 'name address')
       .populate('subjectIds', 'name code')
       .populate('courseIds', 'name category fee duration')

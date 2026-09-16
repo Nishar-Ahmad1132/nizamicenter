@@ -20,16 +20,21 @@ interface TeacherProfile {
   photo?: string;
   address?: { line1?: string; city?: string; state?: string; pincode?: string };
   branchIds: { _id: string; name: string; shortName?: string }[];
-  subjectIds: { _id: string; name: string }[];
-  courseIds: { _id: string; name: { en: string } | string }[];
+  subjectIds: { _id: string; name: { en: string; hi?: string; ur?: string } | string; code?: string }[];
+  courseIds: { _id: string; name: { en: string; hi?: string; ur?: string } | string }[];
   employmentType?: string;
   joiningDate?: string;
   isActive: boolean;
 }
 
-function getCourseName(name: { en: string } | string): string {
-  if (typeof name === 'string') return name;
-  return name?.en || '';
+function getItemName(item: any): string {
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  if (typeof item.name === 'string') return item.name;
+  if (typeof item.name === 'object' && item.name) {
+    return item.name.en || item.name.hi || item.name.ur || '';
+  }
+  return '';
 }
 
 export default function TeacherProfilePage() {
@@ -161,11 +166,13 @@ export default function TeacherProfilePage() {
           <p className="text-green-200 text-sm mt-0.5 font-medium">
             {profile.specialization || 'Faculty Member'}
           </p>
-          <p className="text-xs text-green-300 mt-1 font-mono font-semibold tracking-wide">ID: {profile.teacherId}</p>
+          <p className="text-xs text-green-300 mt-1 font-mono font-semibold tracking-wide">
+            Account ID: {profile.teacherId || (profile.phone ? `teacher_${profile.phone.replace(/\D/g, '').slice(-6)}` : 'Faculty')}
+          </p>
           <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-3">
             {profile.branchIds.map((b) => (
               <span key={b._id} className="px-2.5 py-0.5 rounded-full bg-white/20 text-xs font-semibold">
-                📍 {b.shortName || b.name}
+                📍 {b.shortName || getItemName(b)}
               </span>
             ))}
             {profile.employmentType && (
@@ -243,27 +250,27 @@ export default function TeacherProfilePage() {
             <div className="flex flex-wrap gap-2">
               {profile.branchIds.length > 0 ? profile.branchIds.map((b) => (
                 <span key={b._id} className="px-3 py-1.5 rounded-full bg-[#1B6B3A]/10 text-[#1B6B3A] text-xs font-semibold flex items-center gap-1">
-                  <Building2 className="w-3 h-3" /> {b.name}
+                  <Building2 className="w-3 h-3" /> {getItemName(b)}
                 </span>
               )) : <span className="text-xs text-gray-400">No branches assigned</span>}
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">Subjects</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Subjects (NE Academic)</p>
             <div className="flex flex-wrap gap-2">
               {profile.subjectIds.length > 0 ? profile.subjectIds.map((s) => (
-                <span key={s._id} className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-800 text-xs font-semibold flex items-center gap-1">
-                  <BookOpen className="w-3 h-3" /> {s.name}
+                <span key={s._id} className="px-3 py-1.5 rounded-full bg-purple-50 text-purple-800 text-xs font-semibold flex items-center gap-1 border border-purple-100">
+                  <BookOpen className="w-3 h-3" /> {getItemName(s) || s.code || 'Subject'}
                 </span>
               )) : <span className="text-xs text-gray-400">No subjects assigned</span>}
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-500 mb-1.5">Courses</p>
+            <p className="text-xs font-semibold text-gray-500 mb-1.5">Courses (NIC Islamic)</p>
             <div className="flex flex-wrap gap-2">
               {profile.courseIds.length > 0 ? profile.courseIds.map((c) => (
-                <span key={c._id} className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-800 text-xs font-semibold flex items-center gap-1">
-                  <GraduationCap className="w-3 h-3" /> {getCourseName(c.name)}
+                <span key={c._id} className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 text-xs font-semibold flex items-center gap-1 border border-emerald-100">
+                  <GraduationCap className="w-3 h-3" /> {getItemName(c)}
                 </span>
               )) : <span className="text-xs text-gray-400">No courses assigned</span>}
             </div>
