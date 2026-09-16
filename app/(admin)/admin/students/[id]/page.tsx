@@ -26,7 +26,7 @@ async function getData(id: string) {
 
   if (!student) return null;
 
-  const [enrollments, feeRecords, attendanceStats, branches] = await Promise.all([
+  const [enrollments, feeRecords, attendanceStats, branches, divisions, courses, classes] = await Promise.all([
     Enrollment.find({ studentId: id, isActive: true })
       .populate('divisionId', 'name code')
       .populate('branchId', 'name')
@@ -44,6 +44,9 @@ async function getData(id: string) {
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
     Branch.find({ isActive: true }).select('name').sort({ displayOrder: 1 }).lean(),
+    (await import('@/models/Division')).default.find({ isActive: true }).select('name code slug').sort({ displayOrder: 1 }).lean(),
+    (await import('@/models/Course')).default.find({ isActive: true, status: 'active' }).select('name fee divisionId').sort({ displayOrder: 1 }).lean(),
+    (await import('@/models/Class')).default.find({ isActive: true, status: 'active' }).select('name fee numericValue divisionId').sort({ displayOrder: 1, numericValue: 1 }).lean(),
   ]);
 
   const attnMap: Record<string, number> = {};
@@ -58,6 +61,9 @@ async function getData(id: string) {
     enrollments: JSON.parse(JSON.stringify(enrollments)),
     feeRecords: JSON.parse(JSON.stringify(feeRecords)),
     branches: JSON.parse(JSON.stringify(branches)),
+    divisions: JSON.parse(JSON.stringify(divisions)),
+    courses: JSON.parse(JSON.stringify(courses)),
+    classes: JSON.parse(JSON.stringify(classes)),
     attendance: { ...attnMap, total: attnTotal, percentage: attnTotal > 0 ? Math.round(((attnMap.present ?? 0) + (attnMap.late ?? 0)) / attnTotal * 100) : 0 },
   };
 }
@@ -82,7 +88,7 @@ export default async function StudentDetailPage({
     );
   }
 
-  const { student: s, enrollments, feeRecords, attendance, branches } = data;
+  const { student: s, enrollments, feeRecords, attendance, branches, divisions, courses, classes } = data;
 
   return (
     <div className="space-y-6">
@@ -94,6 +100,10 @@ export default async function StudentDetailPage({
       <StudentProfileHeader
         student={s}
         branches={branches}
+        enrollments={enrollments}
+        divisions={divisions}
+        courses={courses}
+        classes={classes}
         initialEdit={sp.edit === 'true'}
       />
 

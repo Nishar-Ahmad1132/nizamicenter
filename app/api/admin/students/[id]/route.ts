@@ -99,6 +99,38 @@ export async function PATCH(
       }
     }
 
+    // Synchronize Enrollment if courseId, classId, or divisionCode provided
+    if (body.courseId !== undefined || body.classId !== undefined || body.divisionCode) {
+      const Division = (await import('@/models/Division')).default;
+      let divId = body.divisionId;
+      if (!divId && body.divisionCode) {
+        const div = await Division.findOne({ code: body.divisionCode.toUpperCase() });
+        divId = div?._id;
+      }
+
+      const activeEnrollment = await Enrollment.findOne({ studentId: student._id, isActive: true }).sort({ createdAt: -1 });
+      if (activeEnrollment) {
+        if (divId) activeEnrollment.divisionId = divId;
+        if (student.primaryBranchId) activeEnrollment.branchId = student.primaryBranchId;
+        activeEnrollment.courseId = body.courseId || undefined;
+        activeEnrollment.classId = body.classId || undefined;
+        await activeEnrollment.save();
+      } else if (divId) {
+        await Enrollment.create({
+          studentId: student._id,
+          divisionId: divId,
+          branchId: student.primaryBranchId,
+          academicYearId: student.academicYearId,
+          courseId: body.courseId || undefined,
+          classId: body.classId || undefined,
+          enrollmentDate: new Date(),
+          startDate: new Date(),
+          status: 'active',
+          isActive: true,
+        });
+      }
+    }
+
     // Audit log
     await AuditLog.create({
       userId: actingUser.id,

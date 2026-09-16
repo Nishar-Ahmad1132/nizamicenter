@@ -93,7 +93,11 @@ export interface CreateStudentResult {
 export async function createStudentManually(
   data: StudentInput,
   divisionCode: string,
-  actingUser: SessionUser
+  actingUser: SessionUser,
+  enrollmentOptions?: {
+    courseId?: string;
+    classId?: string;
+  }
 ): Promise<CreateStudentResult> {
   await dbConnect();
 
@@ -140,6 +144,24 @@ export async function createStudentManually(
     status: 'active',
     notes: data.notes,
   });
+
+  // Create Enrollment if division is found
+  const Division = (await import('@/models/Division')).default;
+  const division = await Division.findOne({ code: divisionCode.toUpperCase() });
+  if (division) {
+    await Enrollment.create({
+      studentId: student._id,
+      divisionId: division._id,
+      branchId: data.primaryBranchId,
+      academicYearId: data.academicYearId,
+      courseId: enrollmentOptions?.courseId || undefined,
+      classId: enrollmentOptions?.classId || undefined,
+      enrollmentDate: new Date(),
+      startDate: new Date(),
+      status: 'active',
+      isActive: true,
+    });
+  }
 
   // Audit log
   await AuditLog.create({

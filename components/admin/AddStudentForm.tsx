@@ -16,15 +16,45 @@ interface AcademicYearOption {
   isCurrent?: boolean;
 }
 
+interface DivisionOption {
+  _id: string;
+  name: { en: string };
+  code: string;
+}
+
+interface CourseOption {
+  _id: string;
+  name: { en: string };
+  fee?: number;
+  divisionId?: string | { _id: string };
+}
+
+interface ClassOption {
+  _id: string;
+  name: { en: string };
+  fee?: number;
+  numericValue?: number;
+  divisionId?: string | { _id: string };
+}
+
 export default function AddStudentForm({
   branches,
   academicYears,
+  divisions = [],
+  courses = [],
+  classes = [],
 }: {
   branches: BranchOption[];
   academicYears: AcademicYearOption[];
+  divisions?: DivisionOption[];
+  courses?: CourseOption[];
+  classes?: ClassOption[];
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedDivision, setSelectedDivision] = useState<string>('NIC');
+  const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [credentials, setCredentials] = useState<{
     username: string;
     temporaryPassword: string;
@@ -32,6 +62,22 @@ export default function AddStudentForm({
     studentName: string;
   } | null>(null);
   const [copied, setCopied] = useState('');
+
+  // Filter courses for NIC
+  const nicCourses = courses.filter((c) => {
+    if (!c.divisionId) return true;
+    const divId = typeof c.divisionId === 'string' ? c.divisionId : c.divisionId._id;
+    const nicDiv = divisions.find((d) => d.code === 'NIC');
+    return !nicDiv || divId === nicDiv._id;
+  });
+
+  // Filter classes for NE
+  const neClasses = classes.filter((c) => {
+    if (!c.divisionId) return true;
+    const divId = typeof c.divisionId === 'string' ? c.divisionId : c.divisionId._id;
+    const neDiv = divisions.find((d) => d.code === 'NE');
+    return !neDiv || divId === neDiv._id;
+  });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +87,21 @@ export default function AddStudentForm({
     const form = new FormData(e.currentTarget);
     const firstName = form.get('firstName') as string;
     const lastName = form.get('lastName') as string;
+    const divisionCode = (form.get('divisionCode') as string) || selectedDivision || 'NIC';
+    const courseId = (form.get('courseId') as string) || selectedCourseId || undefined;
+    const classId = (form.get('classId') as string) || selectedClassId || undefined;
+
+    if (divisionCode === 'NIC' && !courseId) {
+      setError('Please select an Islamic Course for Nizami Islamic Center enrollment.');
+      setLoading(false);
+      return;
+    }
+
+    if (divisionCode === 'NE' && !classId) {
+      setError('Please select an Academic Class for Nizami Education enrollment.');
+      setLoading(false);
+      return;
+    }
 
     const data = {
       firstName,
@@ -56,7 +117,9 @@ export default function AddStudentForm({
       guardianPhone: form.get('guardianPhone') || undefined,
       primaryBranchId: form.get('primaryBranchId'),
       academicYearId: form.get('academicYearId'),
-      divisionCode: form.get('divisionCode') || 'NE',
+      divisionCode,
+      courseId: divisionCode === 'NIC' ? courseId : undefined,
+      classId: divisionCode === 'NE' ? classId : undefined,
       notes: form.get('notes') || undefined,
       address: {
         line1: form.get('addressLine1') || undefined,
@@ -203,20 +266,69 @@ export default function AddStudentForm({
         <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm space-y-4">
           <h3 className="font-semibold text-sm text-gray-900 flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-700" />
-            Division & Campus Allocation
+            Division, Program &amp; Campus Allocation
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Division *</label>
               <select
                 name="divisionCode"
+                value={selectedDivision}
+                onChange={(e) => {
+                  setSelectedDivision(e.target.value);
+                  setSelectedCourseId('');
+                  setSelectedClassId('');
+                }}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
               >
                 <option value="NIC">Nizami Islamic Center (NIC)</option>
                 <option value="NE">Nizami Education (NE)</option>
               </select>
             </div>
+
+            {/* Dynamic Enrollment Type: Course for NIC, Class for NE */}
+            {selectedDivision === 'NIC' ? (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Enrolling Islamic Course *
+                </label>
+                <select
+                  name="courseId"
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-emerald-300 rounded-xl text-xs bg-emerald-50/40 text-gray-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium"
+                >
+                  <option value="">— Select Islamic Course —</option>
+                  {nicCourses.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name.en} {c.fee ? `(₹${c.fee}/mo)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Enrolling Academic Class (1st – 8th) *
+                </label>
+                <select
+                  name="classId"
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 border border-rose-300 rounded-xl text-xs bg-rose-50/40 text-gray-900 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 font-medium"
+                >
+                  <option value="">— Select Academic Class —</option>
+                  {neClasses.map((cls) => (
+                    <option key={cls._id} value={cls._id}>
+                      {cls.name.en} {cls.fee ? `(₹${cls.fee}/mo)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Primary Branch *</label>

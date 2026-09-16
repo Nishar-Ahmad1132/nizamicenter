@@ -4,13 +4,43 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Pencil, Trash2, X, Check, AlertTriangle, Phone, Building2,
-  Calendar, Save, Loader2, KeyRound, Copy
+  Calendar, Save, Loader2, KeyRound, Copy, BookOpen
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
 interface BranchOption {
   _id: string;
   name: string;
+}
+
+interface DivisionOption {
+  _id: string;
+  name: { en: string };
+  code: string;
+}
+
+interface CourseOption {
+  _id: string;
+  name: { en: string };
+  fee?: number;
+  divisionId?: string | { _id: string; code?: string };
+}
+
+interface ClassOption {
+  _id: string;
+  name: { en: string };
+  fee?: number;
+  numericValue?: number;
+  divisionId?: string | { _id: string; code?: string };
+}
+
+interface EnrollmentItem {
+  _id: string;
+  divisionId?: { _id: string; name?: { en?: string }; code?: string } | string;
+  courseId?: { _id: string; name?: { en?: string } } | string;
+  classId?: { _id: string; name?: { en?: string }; numericValue?: number } | string;
+  branchId?: { _id: string; name?: string } | string;
+  status?: string;
 }
 
 interface StudentData {
@@ -43,10 +73,18 @@ interface StudentData {
 export default function StudentProfileHeader({
   student,
   branches,
+  enrollments = [],
+  divisions = [],
+  courses = [],
+  classes = [],
   initialEdit = false,
 }: {
   student: StudentData;
   branches: BranchOption[];
+  enrollments?: EnrollmentItem[];
+  divisions?: DivisionOption[];
+  courses?: CourseOption[];
+  classes?: ClassOption[];
   initialEdit?: boolean;
 }) {
   const router = useRouter();
@@ -89,6 +127,39 @@ export default function StudentProfileHeader({
     }
   }
 
+  // Primary enrollment details
+  const primaryEnrollment = enrollments[0];
+  const initialDivisionCode =
+    (typeof primaryEnrollment?.divisionId === 'object'
+      ? primaryEnrollment?.divisionId?.code
+      : undefined) || (student.studentId?.toUpperCase().startsWith('NIC') ? 'NIC' : 'NE');
+
+  const initialCourseId =
+    (typeof primaryEnrollment?.courseId === 'object'
+      ? primaryEnrollment?.courseId?._id
+      : primaryEnrollment?.courseId) || '';
+
+  const initialClassId =
+    (typeof primaryEnrollment?.classId === 'object'
+      ? primaryEnrollment?.classId?._id
+      : primaryEnrollment?.classId) || '';
+
+  // Filter courses for NIC
+  const nicCourses = courses.filter((c) => {
+    if (!c.divisionId) return true;
+    const divId = typeof c.divisionId === 'string' ? c.divisionId : c.divisionId._id;
+    const nicDiv = divisions.find((d) => d.code === 'NIC');
+    return !nicDiv || divId === nicDiv._id;
+  });
+
+  // Filter classes for NE
+  const neClasses = classes.filter((c) => {
+    if (!c.divisionId) return true;
+    const divId = typeof c.divisionId === 'string' ? c.divisionId : c.divisionId._id;
+    const neDiv = divisions.find((d) => d.code === 'NE');
+    return !neDiv || divId === neDiv._id;
+  });
+
   // Edit form state
   const [formData, setFormData] = useState({
     firstName: student.firstName,
@@ -104,6 +175,9 @@ export default function StudentProfileHeader({
     guardianPhone: student.guardianPhone || '',
     primaryBranchId: (typeof student.primaryBranchId === 'object' ? student.primaryBranchId?._id : student.primaryBranchId) || branches[0]?._id || '',
     status: student.status || 'active',
+    divisionCode: initialDivisionCode,
+    courseId: initialCourseId,
+    classId: initialClassId,
     line1: student.address?.line1 || '',
     area: student.address?.area || '',
     city: student.address?.city || 'Titwala (E)',
@@ -136,6 +210,9 @@ export default function StudentProfileHeader({
           guardianPhone: formData.guardianPhone || undefined,
           primaryBranchId: formData.primaryBranchId,
           status: formData.status,
+          divisionCode: formData.divisionCode,
+          courseId: formData.divisionCode === 'NIC' ? formData.courseId : undefined,
+          classId: formData.divisionCode === 'NE' ? formData.classId : undefined,
           address: {
             line1: formData.line1 || undefined,
             area: formData.area || undefined,
@@ -468,6 +545,68 @@ export default function StudentProfileHeader({
                       <option value="dropped">Dropped</option>
                     </select>
                   </div>
+                </div>
+              </div>
+
+              {/* Enrollment & Program Allocation */}
+              <div className="border-t border-gray-100 pt-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-emerald-700" />
+                  Enrollment &amp; Program Allocation
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-600 mb-1">Division *</label>
+                    <select
+                      value={formData.divisionCode}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          divisionCode: e.target.value,
+                          courseId: '',
+                          classId: '',
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs bg-white font-medium"
+                    >
+                      <option value="NIC">Nizami Islamic Center (NIC)</option>
+                      <option value="NE">Nizami Education (NE)</option>
+                    </select>
+                  </div>
+
+                  {formData.divisionCode === 'NIC' ? (
+                    <div>
+                      <label className="block text-gray-600 mb-1">Islamic Course / Program *</label>
+                      <select
+                        value={formData.courseId}
+                        onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+                        className="w-full px-3 py-2 border border-emerald-300 rounded-lg text-xs bg-emerald-50/40 text-gray-900 font-medium"
+                      >
+                        <option value="">— Select Islamic Course —</option>
+                        {nicCourses.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            {c.name.en} {c.fee ? `(₹${c.fee}/mo)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-gray-600 mb-1">Academic Class (1st – 8th) *</label>
+                      <select
+                        value={formData.classId}
+                        onChange={(e) => setFormData({ ...formData, classId: e.target.value })}
+                        className="w-full px-3 py-2 border border-rose-300 rounded-lg text-xs bg-rose-50/40 text-gray-900 font-medium"
+                      >
+                        <option value="">— Select Academic Class —</option>
+                        {neClasses.map((cls) => (
+                          <option key={cls._id} value={cls._id}>
+                            {cls.name.en} {cls.fee ? `(₹${cls.fee}/mo)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 

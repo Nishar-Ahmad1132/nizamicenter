@@ -33,7 +33,10 @@ export async function POST(req: NextRequest) {
     }
 
     const divisionCode = body.divisionCode ?? 'NE';
-    const result = await createStudentManually(parsed.data, divisionCode, user);
+    const result = await createStudentManually(parsed.data, divisionCode, user, {
+      courseId: body.courseId,
+      classId: body.classId,
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
