@@ -47,6 +47,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
+        // 3. If not found, check if it matches a Teacher phone or email
+        if (!user) {
+          const Teacher = (await import('@/models/Teacher')).default;
+          const digits = cleanInput.replace(/\D/g, '');
+          const teacher = await Teacher.findOne({
+            $or: [
+              { phone: cleanInput },
+              ...(digits.length >= 7 ? [{ phone: new RegExp(`${digits.slice(-10)}$`) }] : []),
+              { email: cleanInput.toLowerCase() },
+            ],
+            isActive: true,
+          }).lean();
+
+          if (teacher?.userId) {
+            user = await User.findOne({
+              _id: teacher.userId,
+              isActive: true,
+              deletedAt: { $exists: false },
+            }).lean();
+          }
+        }
+
         if (!user) return null;
 
         const isValid = await bcrypt.compare(password, user.passwordHash);

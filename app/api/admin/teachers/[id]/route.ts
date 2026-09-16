@@ -20,7 +20,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (key in body) update[key] = body[key];
     }
 
-    const teacher = await Teacher.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
+    const teacher = await Teacher.findByIdAndUpdate(id, { $set: update }, { new: true })
+      .populate('branchIds', 'name')
+      .populate('subjectIds', 'name')
+      .populate('courseIds', 'name')
+      .lean();
     if (!teacher) return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
 
     return NextResponse.json({ success: true, teacher: JSON.parse(JSON.stringify(teacher)) });

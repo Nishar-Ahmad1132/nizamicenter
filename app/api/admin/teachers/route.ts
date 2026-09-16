@@ -12,6 +12,7 @@ export async function GET() {
     const teachers = await Teacher.find({ isActive: true })
       .populate('branchIds', 'name')
       .populate('subjectIds', 'name')
+      .populate('courseIds', 'name')
       .sort({ name: 1 })
       .lean();
     return NextResponse.json({ teachers: JSON.parse(JSON.stringify(teachers)) });
@@ -60,8 +61,14 @@ export async function POST(req: NextRequest) {
       isPublic: true,
     });
 
+    const populated = await Teacher.findById(teacher._id)
+      .populate('branchIds', 'name')
+      .populate('subjectIds', 'name')
+      .populate('courseIds', 'name')
+      .lean();
+
     return NextResponse.json({
-      teacher: JSON.parse(JSON.stringify(teacher)),
+      teacher: JSON.parse(JSON.stringify(populated)),
       credentials: { username, temporaryPassword: tempPassword },
     }, { status: 201 });
   } catch (e) {

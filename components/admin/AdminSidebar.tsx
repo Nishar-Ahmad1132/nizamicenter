@@ -8,7 +8,7 @@ import {
   CalendarDays, DollarSign, Bell, Newspaper, Calendar,
   Images, Star, Trophy, HelpCircle, BarChart3, Settings,
   ClipboardList, UserCheck, ChevronDown, ChevronRight,
-  Menu, X, FileText, Layers, BookMarked, Clock
+  Menu, X, FileText, Layers, BookMarked, Clock, AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -46,6 +46,7 @@ const navigation: NavItem[] = [
       { label: 'Classes', href: '/admin/classes', icon: GraduationCap },
       { label: 'Subjects', href: '/admin/subjects', icon: BookMarked },
       { label: 'Teachers', href: '/admin/teachers', icon: UserCheck },
+      { label: 'Teacher Issues', href: '/admin/teacher-issues', icon: AlertTriangle },
       { label: 'Timetable', href: '/admin/timetable', icon: Clock },
     ],
   },

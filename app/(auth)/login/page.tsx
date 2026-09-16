@@ -72,14 +72,14 @@ function LoginForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-            Username / Student ID / Email
+            Username / Phone / Email / Student ID
           </label>
           <input
             id="username"
             type="text"
             autoComplete="username"
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
-            placeholder="Enter username or student ID"
+            placeholder="Enter username, registered phone, or email"
             {...register('username')}
           />
           {errors.username && (

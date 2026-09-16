@@ -29,3 +29,4 @@ export { default as PerformanceRecord } from './PerformanceRecord';
 export { default as FAQ } from './FAQ';
 export { default as WebsiteSetting } from './WebsiteSetting';
 export { default as AuditLog } from './AuditLog';
+export { default as TeacherIssue } from './TeacherIssue';

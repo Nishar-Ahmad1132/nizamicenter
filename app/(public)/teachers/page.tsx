@@ -1,7 +1,18 @@
 import { Metadata } from 'next';
 import dbConnect from '@/lib/db/mongoose';
 import Teacher from '@/models/Teacher';
-import { Award, BookOpen, GraduationCap, Mail, Phone } from 'lucide-react';
+import { Award, BookOpen, GraduationCap, Mail, Phone, Building2, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+
+function getItemName(item: any): string {
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  if (typeof item.name === 'string') return item.name;
+  if (typeof item.name === 'object' && item.name) {
+    return item.name.en || item.name.hi || item.name.ur || '';
+  }
+  return '';
+}
 
 export const metadata: Metadata = {
   title: 'Our Faculty & Teachers | Nizami Islamic Center & Education',
@@ -125,7 +136,7 @@ export default async function TeachersPage() {
 
                 <div className="space-y-2 mb-4 text-xs text-gray-600">
                   {t.experience && (
-                    <p className="flex items-center gap-2">
+                    <p className="flex items-center gap-2 font-medium text-amber-700">
                       <Award className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                       <span>{t.experience}</span>
                     </p>
@@ -138,16 +149,70 @@ export default async function TeachersPage() {
                   )}
                 </div>
 
+                {/* Assigned Branches */}
+                {t.branchIds && t.branchIds.length > 0 && (
+                  <div className="mb-3.5">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Building2 className="w-3 h-3 text-blue-600" /> Teaching Branches:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {t.branchIds.map((b: any) => (
+                        <span
+                          key={b._id || b}
+                          className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-md border border-blue-100"
+                        >
+                          {typeof b === 'object' ? b.name : b}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Assigned Subjects & Courses */}
+                {((t.subjectIds && t.subjectIds.length > 0) || (t.courseIds && t.courseIds.length > 0)) && (
+                  <div className="mb-4">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <BookOpen className="w-3 h-3 text-purple-600" /> Subjects &amp; Courses:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {t.subjectIds?.map((s: any) => (
+                        <span
+                          key={s._id || s}
+                          className="inline-block px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-medium rounded-md border border-purple-100"
+                          title="Academic Subject (NE)"
+                        >
+                          {getItemName(s) || s.code || s}
+                        </span>
+                      ))}
+                      {t.courseIds?.map((c: any) => (
+                        <span
+                          key={c._id || c}
+                          className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[11px] font-medium rounded-md border border-emerald-100"
+                          title="Islamic Course (NIC)"
+                        >
+                          {getItemName(c) || c}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-sm text-gray-600 leading-relaxed">
                   {t.bio || 'Dedicated educator striving to bring the best out of every student through rigorous academic standards and personal support.'}
                 </p>
               </div>
 
               <div className="pt-4 mt-6 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                <span className="font-medium">Active Faculty</span>
-                <span className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full font-semibold">
-                  Nizami Center
+                <span className="font-medium flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  Active Faculty
                 </span>
+                <Link
+                  href="/admissions"
+                  className="text-xs font-semibold text-[#1B6B3A] hover:text-[#14522c] hover:underline flex items-center gap-1"
+                >
+                  Enroll with Teacher &rarr;
+                </Link>
               </div>
             </div>
           ))}

@@ -7,7 +7,7 @@ import Testimonial from '@/models/Testimonial';
 import Notice from '@/models/Notice';
 import WebsiteSetting from '@/models/WebsiteSetting';
 import Division from '@/models/Division';
-import { GraduationCap, BookOpen, Users, Building2, Star, ArrowRight, Phone, MapPin, ChevronRight, MessageCircle, School, Sparkles } from 'lucide-react';
+import { GraduationCap, BookOpen, Users, Building2, Star, ArrowRight, Phone, MapPin, ChevronRight, MessageCircle, School, Sparkles, Award } from 'lucide-react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -30,7 +30,18 @@ type PlainClass = {
   status?: string;
 };
 type PlainBranch = { _id: string; name: string; slug: string; area?: string; city?: string; phone?: string; address?: string; description?: { en?: string }; whatsapp?: string };
-type PlainTeacher = { _id: string; name: string; qualification?: string; experience?: string; bio?: string; photo?: string; status?: string };
+type PlainTeacher = {
+  _id: string;
+  name: string;
+  qualification?: string;
+  experience?: string;
+  bio?: string;
+  photo?: string;
+  status?: string;
+  branchIds?: { _id: string; name: string }[];
+  subjectIds?: { _id: string; name: { en?: string; hi?: string; ur?: string } | string; code?: string }[];
+  courseIds?: { _id: string; name: { en?: string; hi?: string; ur?: string } | string }[];
+};
 type PlainTestimonial = { _id: string; name: string; role?: string; message: { en?: string }; rating?: number };
 type PlainNotice = { _id: string; title: { en: string }; publishDate: string };
 type PlainDivision = {
@@ -72,7 +83,9 @@ async function getHomeData() {
         .sort({ displayOrder: 1, numericValue: 1 })
         .lean(),
       Teacher.find({ isActive: true, status: 'active', isPublic: true })
-        .select('name qualification experience bio photo')
+        .populate('branchIds', 'name')
+        .populate('subjectIds', 'name code')
+        .populate('courseIds', 'name')
         .sort({ createdAt: 1 })
         .limit(6)
         .lean(),
@@ -124,6 +137,16 @@ async function getHomeData() {
       divisions: [],
     };
   }
+}
+
+function getItemName(item: { name?: { en?: string; hi?: string; ur?: string } | string } | string | undefined | null): string {
+  if (!item) return '';
+  if (typeof item === 'string') return item;
+  if (typeof item.name === 'string') return item.name;
+  if (typeof item.name === 'object' && item.name) {
+    return item.name.en || item.name.hi || item.name.ur || '';
+  }
+  return '';
 }
 
 export default async function HomePage() {
@@ -654,35 +677,129 @@ export default async function HomePage() {
 
       {/* Teachers Section — Dynamic from DB */}
       {teachers.length > 0 && (
-        <section className="py-16 bg-white">
+        <section className="py-16 bg-slate-50/70 border-y border-gray-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
               <div>
-                <h2 className="text-2xl font-bold text-[#1A1A2E]">Our Faculty &amp; Teachers</h2>
-                <p className="text-gray-500 text-sm mt-1">Qualified educators across both divisions</p>
+                <span className="text-[#1B6B3A] text-xs font-bold uppercase tracking-wider">Faculty &amp; Scholars</span>
+                <h2 className="text-2xl sm:text-3xl font-bold text-[#1A1A2E] mt-1">Our Faculty &amp; Teachers</h2>
+                <p className="text-gray-500 text-sm mt-1">Qualified educators and respected scholars across both divisions</p>
               </div>
-              <Link href="/teachers" className="text-sm text-[#1B6B3A] hover:underline flex items-center gap-1">
-                View all <ArrowRight className="w-4 h-4" />
+              <Link
+                href="/teachers"
+                className="text-sm font-semibold text-[#1B6B3A] hover:underline flex items-center gap-1.5 bg-white border border-emerald-200 px-4 py-2 rounded-xl transition hover:bg-emerald-50 shadow-xs"
+              >
+                View all faculty <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {teachers.map((t) => (
                 <div
                   key={t._id}
-                  className="bg-[#F8FBF9] rounded-2xl border border-gray-100 p-4 text-center hover:shadow-md hover:border-[#1B6B3A]/30 transition group"
+                  className="bg-white rounded-2xl border border-gray-200/80 p-6 flex flex-col justify-between hover:shadow-lg hover:border-[#1B6B3A]/40 transition group"
                 >
-                  <div className="w-14 h-14 bg-[#E8F5EE] rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold text-[#1B6B3A] group-hover:bg-[#1B6B3A] group-hover:text-white transition">
-                    {t.photo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={t.photo} alt={t.name} className="w-14 h-14 rounded-full object-cover" />
-                    ) : (
-                      <span>{t.name.charAt(0)}</span>
+                  <div>
+                    {/* Header: Photo/Avatar + Name + Qualification */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-[#E8F5EE] to-emerald-100 rounded-2xl flex items-center justify-center text-xl font-bold text-[#1B6B3A] shrink-0 shadow-xs group-hover:scale-105 transition">
+                        {t.photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={t.photo} alt={t.name} className="w-14 h-14 rounded-2xl object-cover" />
+                        ) : (
+                          <span>
+                            {t.name
+                              ?.split(' ')
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((n: string) => n[0])
+                              .join('') || t.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-lg font-bold text-[#1A1A2E] leading-snug truncate">{t.name}</h3>
+                        <p className="text-xs font-semibold text-[#1B6B3A] mt-0.5">
+                          {t.qualification || 'Certified Educator'}
+                        </p>
+                        {t.experience && (
+                          <p className="text-xs text-amber-700 flex items-center gap-1.5 mt-1 font-medium">
+                            <Award className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                            <span>{t.experience}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Assigned Branches */}
+                    {t.branchIds && t.branchIds.length > 0 && (
+                      <div className="mb-3.5">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-blue-600" /> Teaching Branches:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {t.branchIds.map((b) => (
+                            <span
+                              key={b._id}
+                              className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-medium rounded-md border border-blue-100"
+                            >
+                              {b.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Assigned Subjects & Courses */}
+                    {((t.subjectIds && t.subjectIds.length > 0) || (t.courseIds && t.courseIds.length > 0)) && (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          <BookOpen className="w-3 h-3 text-purple-600" /> Subjects &amp; Courses:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {t.subjectIds?.map((s) => (
+                            <span
+                              key={s._id}
+                              className="inline-block px-2 py-0.5 bg-purple-50 text-purple-700 text-[11px] font-medium rounded-md border border-purple-100"
+                              title="Academic Subject (NE)"
+                            >
+                              {getItemName(s) || s.code}
+                            </span>
+                          ))}
+                          {t.courseIds?.map((c) => (
+                            <span
+                              key={c._id}
+                              className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[11px] font-medium rounded-md border border-emerald-100"
+                              title="Islamic Course (NIC)"
+                            >
+                              {getItemName(c)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bio snippet */}
+                    {t.bio && (
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mb-4">
+                        {t.bio}
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs font-semibold text-[#1A1A2E] leading-snug">{t.name}</p>
-                  {t.qualification && (
-                    <p className="text-[10px] text-gray-500 mt-0.5 truncate">{t.qualification}</p>
-                  )}
+
+                  {/* Bottom Footer */}
+                  <div className="pt-3.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                    <span className="text-gray-500 font-medium flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      Active Faculty
+                    </span>
+                    <Link
+                      href="/admissions"
+                      className="text-xs font-semibold text-[#1B6B3A] hover:text-[#14522c] hover:underline flex items-center gap-1"
+                    >
+                      Enroll in Class &rarr;
+                    </Link>
+                  </div>
                 </div>
               ))}
             </div>
