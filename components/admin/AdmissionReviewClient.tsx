@@ -23,18 +23,18 @@ interface AcademicYearOption {
 
 interface DivisionOption {
   _id: string;
-  name: { en: string };
+  name: { en: string; hi?: string; ur?: string } | string;
   code: string;
 }
 
 interface ClassOption {
   _id: string;
-  name: string;
+  name: { en: string; hi?: string; ur?: string } | string;
 }
 
 interface CourseOption {
   _id: string;
-  name: { en: string };
+  name: { en: string; hi?: string; ur?: string } | string;
 }
 
 interface ApplicationData {
@@ -51,11 +51,23 @@ interface ApplicationData {
   message?: string;
   status: string;
   createdAt: string;
-  divisionId?: { _id: string; name?: { en: string }; code?: string };
-  classId?: { _id: string; name?: string };
-  courseIds?: Array<{ _id: string; name?: { en: string } }>;
+  divisionId?: { _id: string; name?: { en: string; hi?: string; ur?: string } | string; code?: string };
+  classId?: { _id: string; name?: { en: string; hi?: string; ur?: string } | string };
+  courseIds?: Array<{ _id: string; name?: { en: string; hi?: string; ur?: string } | string }>;
   preferredBranchId?: { _id: string; name?: string };
   convertedStudentId?: string;
+}
+
+function getLocalizedName(val: unknown): string {
+  if (!val) return '—';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val !== null) {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.en === 'string') return obj.en;
+    if (typeof obj.hi === 'string') return obj.hi;
+    if (typeof obj.ur === 'string') return obj.ur;
+  }
+  return '—';
 }
 
 export default function AdmissionReviewClient({
@@ -363,6 +375,24 @@ export default function AdmissionReviewClient({
                   <span>{application.preferredBranchId?.name || 'Any Titwala Campus'}</span>
                 </div>
               </div>
+              <div>
+                <span className="text-gray-400 block text-[11px]">Applied Program</span>
+                <span className="font-semibold text-gray-900 mt-0.5 block">
+                  {application.divisionId
+                    ? `${getLocalizedName(application.divisionId.name)} (${application.divisionId.code})`
+                    : 'Not specified'}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-400 block text-[11px]">Applied Course / Class</span>
+                <span className="font-semibold text-gray-900 mt-0.5 block">
+                  {application.classId
+                    ? getLocalizedName(application.classId.name)
+                    : application.courseIds && application.courseIds.length > 0
+                    ? application.courseIds.map((c) => getLocalizedName(c.name)).join(', ')
+                    : '—'}
+                </span>
+              </div>
               <div className="sm:col-span-2">
                 <span className="text-gray-400 block text-[11px]">Residential Address</span>
                 <span className="text-gray-700 mt-0.5 block">{application.address || 'Baneli / Titwala (East)'}</span>
@@ -406,11 +436,28 @@ export default function AdmissionReviewClient({
                   </label>
                   <select
                     value={divisionCode}
-                    onChange={(e) => setDivisionCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => {
+                      setDivisionCode(e.target.value);
+                      if (e.target.value === 'NE') {
+                        setSelectedCourse('');
+                      } else {
+                        setSelectedClass('');
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-emerald-500 font-medium"
                   >
-                    <option value="NIC">Nizami Islamic Center (NIC)</option>
-                    <option value="NE">Nizami Education (NE)</option>
+                    {divisions && divisions.length > 0 ? (
+                      divisions.map((d) => (
+                        <option key={d._id} value={d.code}>
+                          {getLocalizedName(d.name)} ({d.code})
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="NIC">Nizami Islamic Center (NIC)</option>
+                        <option value="NE">Nizami Education (NE)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -451,7 +498,7 @@ export default function AdmissionReviewClient({
                 {divisionCode === 'NE' ? (
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Academic Class / Grade
+                      Academic Class / Grade *
                     </label>
                     <select
                       value={selectedClass}
@@ -461,7 +508,7 @@ export default function AdmissionReviewClient({
                       <option value="">Select Class (1 to 8)...</option>
                       {classes.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.name}
+                          {getLocalizedName(c.name)}
                         </option>
                       ))}
                     </select>
@@ -469,7 +516,7 @@ export default function AdmissionReviewClient({
                 ) : (
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Islamic Studies Course
+                      Islamic Studies Course *
                     </label>
                     <select
                       value={selectedCourse}
@@ -479,7 +526,7 @@ export default function AdmissionReviewClient({
                       <option value="">Select Islamic Course...</option>
                       {courses.map((c) => (
                         <option key={c._id} value={c._id}>
-                          {c.name.en}
+                          {getLocalizedName(c.name)}
                         </option>
                       ))}
                     </select>

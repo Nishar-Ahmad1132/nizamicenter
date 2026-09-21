@@ -24,14 +24,16 @@ export default async function ParentPortalLayout({
       <aside className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between shrink-0">
         <div>
           {/* Logo & Portal Badge */}
-          <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-bold text-gray-900 text-sm leading-tight">Parent Portal</p>
-              <p className="text-xs text-gray-500">Nizami Institute</p>
-            </div>
+          <div className="p-6 border-b border-gray-100">
+            <Link href="/" className="flex items-center gap-3 group transition-transform hover:opacity-90" title="Go to Homepage">
+              <div className="w-10 h-10 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold transition-transform group-hover:scale-105">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 text-sm leading-tight group-hover:text-purple-700 transition-colors">Parent Portal</p>
+                <p className="text-xs text-gray-500">Nizami Institute</p>
+              </div>
+            </Link>
           </div>
 
           {/* Navigation */}
@@ -67,10 +69,10 @@ export default async function ParentPortalLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:hidden">
-            <GraduationCap className="w-6 h-6 text-purple-700" />
-            <span className="font-bold text-gray-900 text-sm">Parent Portal</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2 md:hidden group" title="Go to Homepage">
+            <GraduationCap className="w-6 h-6 text-purple-700 group-hover:scale-105 transition-transform" />
+            <span className="font-bold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">Parent Portal</span>
+          </Link>
 
           <div className="hidden md:block">
             <h1 className="text-sm font-semibold text-gray-700">

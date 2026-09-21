@@ -21,6 +21,8 @@ import {
 interface StudentRow {
   _id: string;
   studentId: string;
+  enrollmentId?: string;
+  branchId?: string;
   name: string;
   phone?: string;
   gender: string;
@@ -167,6 +169,8 @@ export default function TeacherAttendancePage() {
     try {
       const entries = students.map((s) => ({
         studentId: s._id,
+        enrollmentId: s.enrollmentId,
+        branchId: s.branchId,
         status: s.attendanceStatus,
       }));
       const res = await fetch('/api/teacher/attendance', {

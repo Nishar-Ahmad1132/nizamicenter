@@ -39,9 +39,9 @@ export async function GET(req: NextRequest) {
     const courseId = searchParams.get('courseId') || '';
     const subjectId = searchParams.get('subjectId') || '';
 
-    const date = new Date(dateStr);
-    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+    const cleanDateStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const dayStart = new Date(`${cleanDateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${cleanDateStr}T23:59:59.999Z`);
 
     // Find teacher record from user session
     const rawTeacher = await getEffectiveTeacher(user);
@@ -138,6 +138,8 @@ export async function GET(req: NextRequest) {
         return {
           _id: e.studentId._id.toString(),
           studentId: e.studentId.studentId,
+          enrollmentId: e._id.toString(),
+          branchId: (e.branchId?._id || e.branchId)?.toString() || '',
           name: `${e.studentId.firstName} ${e.studentId.lastName}`.trim(),
           phone: e.studentId.phone || '',
           gender: e.studentId.gender || 'male',
@@ -185,7 +187,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { date, entries } = body as {
       date: string;
-      entries: { studentId: string; status: string; notes?: string }[];
+      entries: {
+        studentId: string;
+        enrollmentId?: string;
+        branchId?: string;
+        status: string;
+        notes?: string;
+      }[];
     };
 
     if (!date || !Array.isArray(entries) || entries.length === 0) {
@@ -198,34 +206,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Teacher not found' }, { status: 404 });
     }
 
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(12, 0, 0, 0); // noon to avoid TZ issues
+    const cleanDateStr = date.includes('T') ? date.split('T')[0] : date;
+    const dayStart = new Date(`${cleanDateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${cleanDateStr}T23:59:59.999Z`);
+    const attendanceDate = new Date(`${cleanDateStr}T12:00:00.000Z`); // noon UTC
 
-    const branchId = (fallbackTeacher.branchIds as any[])?.[0] ?? null;
+    const defaultBranchId = (fallbackTeacher.branchIds as any[])?.[0] ?? null;
 
-    const ops = entries.map((entry) => ({
-      updateOne: {
-        filter: {
-          studentId: new mongoose.Types.ObjectId(entry.studentId),
-          date: {
-            $gte: new Date(date + 'T00:00:00.000Z'),
-            $lte: new Date(date + 'T23:59:59.999Z'),
-          },
-        },
-        update: {
-          $set: {
+    const ops = entries.map((entry) => {
+      const setFields: Record<string, any> = {
+        studentId: new mongoose.Types.ObjectId(entry.studentId),
+        date: attendanceDate,
+        status: entry.status,
+        markedBy: new mongoose.Types.ObjectId(user.id),
+        notes: entry.notes || '',
+        isEdited: false,
+      };
+
+      if (entry.enrollmentId && mongoose.Types.ObjectId.isValid(entry.enrollmentId)) {
+        setFields.enrollmentId = new mongoose.Types.ObjectId(entry.enrollmentId);
+      }
+
+      const branchToUse = entry.branchId || defaultBranchId;
+      if (branchToUse && mongoose.Types.ObjectId.isValid(branchToUse.toString())) {
+        setFields.branchId = new mongoose.Types.ObjectId(branchToUse.toString());
+      }
+
+      return {
+        updateOne: {
+          filter: {
             studentId: new mongoose.Types.ObjectId(entry.studentId),
-            branchId: branchId ? new mongoose.Types.ObjectId(branchId.toString()) : undefined,
-            date: attendanceDate,
-            status: entry.status,
-            markedBy: new mongoose.Types.ObjectId(user.id),
-            notes: entry.notes || '',
-            isEdited: false,
+            date: { $gte: dayStart, $lte: dayEnd },
           },
+          update: { $set: setFields },
+          upsert: true,
         },
-        upsert: true,
-      },
-    }));
+      };
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await Attendance.bulkWrite(ops as any);

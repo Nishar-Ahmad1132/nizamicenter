@@ -39,7 +39,7 @@ const attendanceSchema = new Schema<IAttendance>(
 
 // Prevent duplicate attendance for same student on the same date
 attendanceSchema.index({ studentId: 1, date: 1 }, { unique: true });
-attendanceSchema.index({ enrollmentId: 1, date: 1 }, { sparse: true });
+attendanceSchema.index({ enrollmentId: 1, date: 1 });
 attendanceSchema.index({ branchId: 1, date: 1 });
 attendanceSchema.index({ date: 1 });
 

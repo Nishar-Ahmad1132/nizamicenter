@@ -142,10 +142,18 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-4 shadow-lg">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center w-16 h-16 bg-primary hover:bg-primary-dark rounded-2xl mb-4 shadow-lg hover:scale-105 transition-all"
+            title="Go to Homepage"
+          >
             <GraduationCap className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-dark">Nizami Islamic Center</h1>
+          </Link>
+          <h1 className="text-2xl font-bold text-dark">
+            <Link href="/" className="hover:text-primary transition-colors">
+              Nizami Islamic Center
+            </Link>
+          </h1>
           <p className="text-gray-500 text-sm mt-1">& Nizami Education</p>
         </div>
 

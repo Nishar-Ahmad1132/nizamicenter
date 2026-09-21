@@ -164,15 +164,15 @@ export default function AdminSidebar({ userRole }: { userRole: string }) {
     <div className="flex flex-col h-full">
       {/* Logo */}
       <div className="px-4 py-5 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shrink-0">
+        <Link href="/" className="flex items-center gap-3 group transition-transform hover:opacity-90" title="Go to Homepage">
+          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
             <GraduationCap className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-dark truncate">Nizami Islamic</p>
+            <p className="text-sm font-bold text-dark truncate group-hover:text-primary transition-colors">Nizami Islamic</p>
             <p className="text-xs text-gray-500 truncate">Center & Education</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Nav */}

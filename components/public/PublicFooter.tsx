@@ -18,15 +18,15 @@ export default function PublicFooter({ settings }: FooterProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-[#1B6B3A] rounded-xl flex items-center justify-center shrink-0">
+            <Link href="/" className="flex items-center gap-3 mb-4 group inline-flex" title="Go to Homepage">
+              <div className="w-10 h-10 bg-[#1B6B3A] rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105">
                 <GraduationCap className="w-6 h-6 text-white" />
               </div>
               <div>
-                <p className="text-white font-bold text-sm">{centerName}</p>
+                <p className="text-white font-bold text-sm group-hover:text-emerald-400 transition-colors">{centerName}</p>
                 <p className="text-gray-400 text-xs">& Nizami Education</p>
               </div>
-            </div>
+            </Link>
             <p className="text-sm text-gray-400 leading-relaxed">
               Providing quality Islamic and academic education to nurture knowledge, character, and a better future.
             </p>

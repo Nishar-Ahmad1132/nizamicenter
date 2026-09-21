@@ -45,14 +45,16 @@ export default async function TeacherPortalLayout({
       <aside className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col justify-between shrink-0">
         <div>
           {/* Logo & Portal Badge */}
-          <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#1B6B3A] text-white flex items-center justify-center font-bold shadow-xs">
-              <GraduationCap className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-bold text-gray-900 text-sm leading-tight">Faculty Portal</p>
-              <p className="text-xs text-[#1B6B3A] font-medium">Nizami Center &amp; Education</p>
-            </div>
+          <div className="p-6 border-b border-gray-100">
+            <Link href="/" className="flex items-center gap-3 group transition-transform hover:opacity-90" title="Go to Homepage">
+              <div className="w-10 h-10 rounded-xl bg-[#1B6B3A] text-white flex items-center justify-center font-bold shadow-xs transition-transform group-hover:scale-105">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-bold text-gray-900 text-sm leading-tight group-hover:text-[#1B6B3A] transition-colors">Faculty Portal</p>
+                <p className="text-xs text-[#1B6B3A] font-medium">Nizami Center &amp; Education</p>
+              </div>
+            </Link>
           </div>
 
           {/* Teacher preview banner in sidebar */}
@@ -102,10 +104,10 @@ export default async function TeacherPortalLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:hidden">
-            <GraduationCap className="w-6 h-6 text-[#1B6B3A]" />
-            <span className="font-bold text-gray-900 text-sm">Faculty Portal</span>
-          </div>
+          <Link href="/" className="flex items-center gap-2 md:hidden group" title="Go to Homepage">
+            <GraduationCap className="w-6 h-6 text-[#1B6B3A] group-hover:scale-105 transition-transform" />
+            <span className="font-bold text-gray-900 text-sm group-hover:text-[#1B6B3A] transition-colors">Faculty Portal</span>
+          </Link>
 
           <div className="hidden md:flex items-center gap-2 text-sm text-gray-700">
             <span>Welcome back,</span>

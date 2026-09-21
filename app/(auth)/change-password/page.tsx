@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { KeyRound, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function ChangePasswordPage() {
@@ -57,10 +58,12 @@ export default function ChangePasswordPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-emerald-100 text-[#1B6B3A] rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <KeyRound className="w-6 h-6" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Change Password</h1>
+          <Link href="/" className="inline-flex flex-col items-center group cursor-pointer" title="Go to Homepage">
+            <div className="w-12 h-12 bg-emerald-100 text-[#1B6B3A] rounded-2xl flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
+              <KeyRound className="w-6 h-6" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 group-hover:text-[#1B6B3A] transition-colors">Change Password</h1>
+          </Link>
           <p className="text-xs text-gray-500 mt-1">
             Please update your password to maintain account security.
           </p>

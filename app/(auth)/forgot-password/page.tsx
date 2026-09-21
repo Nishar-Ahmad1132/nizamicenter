@@ -139,11 +139,13 @@ function ForgotPasswordContent() {
       <div className="w-full max-w-md">
         {/* Logo / Brand Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 bg-emerald-800 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-900/10">
-            <GraduationCap className="w-6 h-6" />
-          </div>
-          <h1 className="text-xl font-bold text-gray-900">Nizami Islamic Center</h1>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">& Nizami Education</p>
+          <Link href="/" className="inline-flex flex-col items-center justify-center group cursor-pointer" title="Go to Homepage">
+            <div className="w-12 h-12 bg-emerald-800 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-900/10 transition-transform group-hover:scale-105">
+              <GraduationCap className="w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 group-hover:text-emerald-800 transition-colors">Nizami Islamic Center</h1>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">& Nizami Education</p>
+          </Link>
         </div>
 
         {/* Card Container */}

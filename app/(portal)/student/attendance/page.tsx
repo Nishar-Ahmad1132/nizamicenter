@@ -2,9 +2,22 @@ import { auth } from '@/lib/auth';
 import dbConnect from '@/lib/db/mongoose';
 import Student from '@/models/Student';
 import Attendance from '@/models/Attendance';
+import Teacher from '@/models/Teacher';
+import Enrollment from '@/models/Enrollment';
 import '@/models/Branch';
-import { CalendarCheck, CheckCircle2, XCircle, Clock, Minus, Sparkles } from 'lucide-react';
+import '@/models/Course';
+import '@/models/Class';
+import '@/models/Division';
+import '@/models/Subject';
+import { CalendarCheck, CheckCircle2, XCircle, Clock, Minus, Sparkles, User, BookOpen } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+
+function getLocalizedName(val: any): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') return val.en || val.ar || val.ur || Object.values(val)[0] || '';
+  return String(val);
+}
 
 export default async function StudentAttendancePage() {
   const session = await auth();
@@ -23,23 +36,95 @@ export default async function StudentAttendancePage() {
       .lean();
   }
 
-  // Fetch real attendance records for this student
+  // Fetch real attendance records, populating branch + the user who marked it
   let logs: Array<{
     _id: string;
     date: Date | string;
     status: 'present' | 'absent' | 'late' | 'leave';
     notes?: string;
+    enrollmentId?: string;
     branchId?: { name: string };
+    markedBy?: { _id: string };
+    markedByName?: string;
+    sessionLabel?: string;
   }> = [];
 
   if (student?._id) {
     const rawLogs = await Attendance.find({ studentId: student._id })
       .populate('branchId', 'name')
+      .populate('markedBy', '_id')
       .sort({ date: -1 })
       .limit(60)
       .lean();
 
-    logs = JSON.parse(JSON.stringify(rawLogs));
+    const parsed: typeof logs = JSON.parse(JSON.stringify(rawLogs));
+
+    // Collect unique markedBy user IDs → resolve teacher names
+    const markerIds = [...new Set(
+      parsed.map((l) => (l.markedBy as any)?._id?.toString()).filter(Boolean)
+    )];
+
+    const teachers = markerIds.length > 0
+      ? await Teacher.find({ userId: { $in: markerIds } })
+          .select('userId name qualification')
+          .lean()
+      : [];
+
+    const teacherByUserId = new Map(
+      teachers.map((t: any) => [t.userId.toString(), t])
+    );
+
+    // Collect enrollmentIds to resolve session details
+    const enrollmentIds = [...new Set(
+      parsed.map((l) => (l as any).enrollmentId?.toString()).filter(Boolean)
+    )];
+
+    const enrollments = enrollmentIds.length > 0
+      ? await Enrollment.find({ _id: { $in: enrollmentIds } })
+          .populate('divisionId', 'code name')
+          .populate('courseId', 'name')
+          .populate('classId', 'name numericValue')
+          .populate('subjectIds', 'name code')
+          .lean()
+      : [];
+
+    const enrollmentById = new Map(
+      enrollments.map((e: any) => [e._id.toString(), e])
+    );
+
+    logs = parsed.map((log) => {
+      const userId = (log.markedBy as any)?._id?.toString();
+      const teacher = userId ? teacherByUserId.get(userId) : null;
+      const markedByName = (teacher as any)?.name || null;
+
+      // Build session label
+      const enrollment = log.enrollmentId
+        ? enrollmentById.get(log.enrollmentId.toString())
+        : null;
+
+      let sessionLabel = '';
+      if (enrollment) {
+        const div = (enrollment as any).divisionId;
+        const divCode = div?.code || '';
+        if (divCode === 'NIC') {
+          const courseName = getLocalizedName((enrollment as any).courseId?.name) || 'Islamic Course';
+          sessionLabel = `NIC · ${courseName}`;
+        } else if (divCode === 'NE') {
+          const className = getLocalizedName((enrollment as any).classId?.name)
+            || ((enrollment as any).classId?.numericValue ? `Class ${(enrollment as any).classId.numericValue}` : 'Academic');
+          const subjects = ((enrollment as any).subjectIds || [])
+            .map((s: any) => getLocalizedName(s.name) || s.code)
+            .filter(Boolean);
+          sessionLabel = subjects.length > 0
+            ? `NE · ${className} (${subjects.slice(0, 2).join(', ')}${subjects.length > 2 ? '…' : ''})`
+            : `NE · ${className}`;
+        } else {
+          sessionLabel = divCode || 'Session';
+        }
+      }
+
+      return { ...log, markedByName, sessionLabel };
+    });
   }
 
   // Calculate live statistics
@@ -63,7 +148,7 @@ export default async function StudentAttendancePage() {
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold mt-2">My Attendance History</h1>
         <p className="text-emerald-100 text-xs sm:text-sm mt-1">
-          Attendance history and session verification for {studentName} ({student?.studentId || 'NIZ'})
+          Attendance history and session verification for {studentName} ({(student as any)?.studentId || 'NIZ'})
         </p>
       </div>
 
@@ -71,7 +156,7 @@ export default async function StudentAttendancePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm">
           <p className="text-xs text-gray-500 font-medium">Attendance Rate</p>
-          <p className="text-2xl font-extrabold text-emerald-800 mt-1">{rate}%</p>
+          <p className={`text-2xl font-extrabold mt-1 ${rate >= 85 ? 'text-emerald-800' : 'text-rose-600'}`}>{rate}%</p>
           <p className="text-[11px] text-gray-400 mt-0.5">
             {rate >= 85 ? 'Excellent record' : 'Needs attention'}
           </p>
@@ -124,18 +209,44 @@ export default async function StudentAttendancePage() {
                 <tr className="bg-slate-50 text-gray-500 uppercase tracking-wider border-b border-gray-200 font-semibold text-[11px]">
                   <th className="p-4">Date</th>
                   <th className="p-4">Campus / Branch</th>
-                  <th className="p-4">Remarks / Note</th>
+                  <th className="p-4">Session</th>
+                  <th className="p-4">Marked By</th>
+                  <th className="p-4">Remarks</th>
                   <th className="p-4">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-700">
                 {logs.map((log) => (
                   <tr key={log._id} className="hover:bg-slate-50/70 transition">
-                    <td className="p-4 font-semibold text-gray-900 font-mono">
+                    <td className="p-4 font-semibold text-gray-900 font-mono whitespace-nowrap">
                       {formatDate(log.date)}
                     </td>
                     <td className="p-4 text-gray-600">
                       {log.branchId?.name || (student as any)?.primaryBranchId?.name || 'Main Campus'}
+                    </td>
+                    <td className="p-4">
+                      {log.sessionLabel ? (
+                        <span className="inline-flex items-center gap-1 text-gray-700 font-medium">
+                          <BookOpen className="w-3 h-3 text-emerald-600 shrink-0" />
+                          {log.sessionLabel}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {log.markedByName ? (
+                        <span className="inline-flex items-center gap-1 text-gray-700">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {log.markedByName.charAt(0).toUpperCase()}
+                          </span>
+                          <span className="font-medium">{log.markedByName}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-gray-400">
+                          <User className="w-3 h-3" /> Admin
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 text-gray-500">
                       {log.notes || '—'}
